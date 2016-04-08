@@ -11,7 +11,7 @@ class Board:
 	def __init__(self, game_tree):
 		self.game_tree = game_tree
 		self.node = game_tree.root
-		self.stones = [[0]*Board.SIZE for x in range(0, Board.SIZE)]
+		self.stones = [0]*Board.SIZE*Board.SIZE
 
 	def next(self):
 		self.node = self.node.next
@@ -30,19 +30,20 @@ class Board:
 		y = ord(pos[1]) - ord('a')
 		if not self.place(x, y, color):
 			print(self.highlight(x, y, color))
-			raise Exception("Invalid Move at " + str(x) + " " + str(y))
+			print("Invalid Move at " + str(x) + " " + str(y))
+			return None
 
 		return (x, y, color)
 
-	def copy():
+	def copy(self):
 		other = Board(self.game_tree)
 		other.node = self.node
 		# Copy stones
-		other.stones = [v[:] for v in stones]
+		other.stones = self.stones[:]
 		return other
 
 	def valid_move(self, x, y, color):
-		if self.stones[x][y] != 0:
+		if self.stones[x + y*Board.SIZE] != 0:
 			return False
 
 		for i in range(0, 4):
@@ -54,10 +55,10 @@ class Board:
 
 	def place(self, x, y, color):
 
-		if self.stones[x][y] != 0:
+		if self.stones[x + y*Board.SIZE] != 0:
 			return False
 		else:
-			self.stones[x][y] = color
+			self.stones[x + y*Board.SIZE] = color
 
 			# Remove opponent stones first
 			for i in range(0, 4):
@@ -73,7 +74,7 @@ class Board:
 			self.remove_if_taken(x, y)
 
 			# Actually an invalid move
-			if self.stones[x][y] != color:
+			if self.stones[x + y*Board.SIZE] != color:
 				return False
 
 			return True
@@ -82,32 +83,55 @@ class Board:
 		if x < 0 or y < 0 or x >= Board.SIZE or y >= Board.SIZE:
 			return -2
 
-		return self.stones[x][y]
+		return self.stones[x + y*Board.SIZE]
 
-	def remove_if_taken(self, x, y):
+	def freedoms(self, x, y, seen_buffer):
 		color = self.get(x,y)
-		if color == 0 or color == -2:
-			return
 
-		seen = set()
-		seen.add((x,y))
+		if color == 0 or color == -2:
+			return 0
+
+		seen_buffer.add((x,y))
 		stack = [(x,y)]
+		free = 0
 		while len(stack) > 0:
 			p = stack.pop()
 
 			for i in range(0,4):
 				other = self.get(p[0]+Board.dx[i], p[1] + Board.dy[i])
 				if other == 0:
-					return
+					free += 1
 				elif other == color:
 					po = (p[0]+Board.dx[i], p[1] + Board.dy[i])
-					if po not in seen:
-						seen.add(po)
+					if po not in seen_buffer:
+						seen_buffer.add(po)
 						stack.append(po)
 
-		# No free edges
-		for p in seen:
-			self.stones[p[0]][p[1]] = 0
+		return free
+
+	def remove_if_taken(self, x, y):
+		seen = set()
+		fr = self.freedoms(x, y, seen)
+		if fr == 0:
+			# No free edges
+			for p in seen:
+				self.stones[p[0] + p[1]*Board.SIZE] = 0
+
+
+	def all_freedoms(self):
+		frs = [-1]*Board.SIZE*Board.SIZE
+
+		for y in range(0, Board.SIZE):
+			for x in range(0, Board.SIZE):
+				if frs[x + y*Board.SIZE] == -1:
+					if self.get(x,y) == 0:
+						frs[x + y*Board.SIZE] = 0
+					else:
+						seen = set()
+						fr = self.freedoms(x, y, seen)
+						for p in seen:
+							frs[p[0] + p[1]*Board.SIZE] = fr
+		return frs
 
 	def __str__(self):
 		return self.highlight(-1, -1, 0)
@@ -127,7 +151,7 @@ class Board:
 		for y in range(0, Board.SIZE):
 			s += '|'
 			for x in range(0, Board.SIZE):
-				col = self.stones[x][y]
+				col = self.stones[x + y*Board.SIZE]
 
 				if x == hx and y == hy:
 					if col != 0:
@@ -162,7 +186,7 @@ def iterate_valid_games_loop(directory):
 		if 'SZ' in gt.root.properties:
 			size = gt.root.properties['SZ']
 			if size != ['19']:
-				print("Invalid board size (" + size + ")")
+				print("Invalid board size (" + str(size) + ")")
 				continue
 		else:
 			print("No board size specified")
@@ -193,7 +217,7 @@ def load(directory):
 	return Collection(iterate_valid_games_loop(directory))
 
 if __name__ == "__main__":
-	c = load()
+	c = load("train")
 	for game in c.next(5):
 
 		while True:
