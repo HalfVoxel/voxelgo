@@ -3,9 +3,12 @@ import numpy
 import tensorflow as tf
 import random
 
-games = goutil.load("train")
+games = goutil.load("train_alt")
 
 current_games = []
+
+def epoch():
+	return games.epoch()
 
 def next_batch(n):
 	result = []
@@ -22,12 +25,7 @@ def next_batch(n):
 		black = [(1 if x == -1 else 0) for x in game.stones]
 		freedoms = game.all_freedoms()
 
-		dup = game.copy()
-		try:
-			move = game.next()
-		except:
-			print(str(dup))
-			raise
+		move = game.next()
 
 		if move == None:
 			# End of game

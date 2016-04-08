@@ -8,9 +8,13 @@ class Board:
 	dx = [1, 0, -1, 0]
 	dy = [0, 1, 0, -1]
 
-	def __init__(self, game_tree):
+	def __init__(self, path, game_tree):
+		self.path = path
 		self.game_tree = game_tree
-		self.node = game_tree.root
+		if game_tree is not None:
+			self.node = game_tree.root
+		else:
+			self.node = None
 		self.stones = [0]*Board.SIZE*Board.SIZE
 
 	def next(self):
@@ -26,35 +30,32 @@ class Board:
 			pos = self.node.properties['B'][0]
 			color = -1
 
+		if len(pos) != 2:
+			print("Invalid move position: " + str(pos) + "\n" + self.path)
+			return None
+
 		x = ord(pos[0]) - ord('a')
 		y = ord(pos[1]) - ord('a')
 		if not self.place(x, y, color):
 			print(self.highlight(x, y, color))
-			print("Invalid Move at " + str(x) + " " + str(y))
+			print("Invalid Move at " + str(x) + " " + str(y) + "\n" + self.path)
 			return None
 
 		return (x, y, color)
 
 	def copy(self):
-		other = Board(self.game_tree)
+		other = Board(self.path, self.game_tree)
 		other.node = self.node
 		# Copy stones
 		other.stones = self.stones[:]
 		return other
 
-	def valid_move(self, x, y, color):
-		if self.stones[x + y*Board.SIZE] != 0:
+	def place(self, x, y, color):
+		# Out of range
+		if self.get(x,y) == -2:
 			return False
 
-		for i in range(0, 4):
-			v = get(x+Board.dx[i], y + Board.dy[i])
-			if v == color or v == 0:
-				return True
-
-		return False
-
-	def place(self, x, y, color):
-
+		# Already a stone there
 		if self.stones[x + y*Board.SIZE] != 0:
 			return False
 		else:
@@ -62,19 +63,23 @@ class Board:
 
 			# Remove opponent stones first
 			for i in range(0, 4):
-				if self.get(x + Board.dx[i], y + Board.dy[i]) == -color:
-					self.remove_if_taken(x + Board.dx[i], y + Board.dy[i])
+				nx = x + Board.dx[i]
+				ny = y + Board.dy[i]
+				if self.get(nx, ny) == -color:
+					self.remove_if_taken(nx, ny)
 
 			# Then remove our stones
 			for i in range(0, 4):
-				if self.get(x + Board.dx[i], y + Board.dy[i]) == color:
-					self.remove_if_taken(x + Board.dx[i], y + Board.dy[i])
+				nx = x + Board.dx[i]
+				ny = y + Board.dy[i]
+				if self.get(nx, ny) == color:
+					self.remove_if_taken(nx, ny)
 
-			# Remove the placed stone
+			# Remove the placed stone if it is taken
 			self.remove_if_taken(x, y)
 
 			# Actually an invalid move
-			if self.stones[x + y*Board.SIZE] != color:
+			if self.get(x, y) != color:
 				return False
 
 			return True
@@ -92,17 +97,20 @@ class Board:
 			return 0
 
 		seen_buffer.add((x,y))
+		seen_freedoms = set()
 		stack = [(x,y)]
 		free = 0
 		while len(stack) > 0:
 			p = stack.pop()
 
 			for i in range(0,4):
-				other = self.get(p[0]+Board.dx[i], p[1] + Board.dy[i])
+				po = (p[0]+Board.dx[i], p[1] + Board.dy[i])
+				other = self.get(po[0], po[1])
 				if other == 0:
-					free += 1
+					if po not in seen_freedoms:
+						seen_freedoms.add(po)
+						free += 1
 				elif other == color:
-					po = (p[0]+Board.dx[i], p[1] + Board.dy[i])
 					if po not in seen_buffer:
 						seen_buffer.add(po)
 						stack.append(po)
@@ -138,6 +146,9 @@ class Board:
 
 	def highlight(self, hx, hy, hcol):
 		s = ""
+		for x in range(0, Board.SIZE):
+			s += ' ' + str(x)
+		s += '\n'
 		s += ' ' + '--' * Board.SIZE + '\n'
 
 		# Used with index 1 and -1
@@ -171,53 +182,62 @@ class Board:
 
 
 class Collection:
-	def __init__(self, games):
+	def __init__(self, estimated_count, games):
 		self.games = games
+		self.count = 0
+		self.estimated_count = estimated_count
+
+	def epoch(self):
+		return self.count / self.estimated_count
 
 	def next(self, n):
-		result = []
-		for i in range(0, n):
-			result.append(next(self.games))
-		return result
+		self.count += n
+		return [next(self.games) for i in range(0, n)]
 
-def iterate_valid_games_loop(directory):
-	for game in iterate_games_loop(directory):
-		gt = game.children[0]
+def iterate_valid_games_loop(paths):
+	for game in iterate_games_loop(paths):
+		gt = game.game_tree
 		if 'SZ' in gt.root.properties:
 			size = gt.root.properties['SZ']
 			if size != ['19']:
-				print("Invalid board size (" + str(size) + ")")
+				# print("Invalid board size (" + str(size) + ")")
 				continue
 		else:
-			print("No board size specified")
+			# TODO: Guess board size?
+			# print("No board size specified")
 			continue
 
-		yield Board(gt)
+		yield game
 
 
+def all_paths(directory):
+	all_paths = []
+	for (path, dirs, files) in os.walk(directory):
+		for file in files:
+			if file.endswith('.sgf'):
+				all_paths.append(os.path.join(path, file))
 
-def iterate_games_loop(directory):
+	random.shuffle(all_paths)
+	return all_paths
+
+def iterate_games_loop(paths):
 	while(True):
-		all_paths = []
-		for (path, dirs, files) in os.walk(directory):
-			for file in files:
-				if file.endswith('.sgf'):
-					all_paths.append(os.path.join(path, file))
-
-		random.shuffle(all_paths)
-		for filepath in all_paths:
+		for filepath in paths:
 			try:
-				yield sgf.parse(open(filepath).read())
+				game = sgf.parse(open(filepath).read())
+				gt = game.children[0]
+				yield Board(filepath, gt)
 			except Exception as e:
 				print("Failed to parse " + filepath)
 				print(e)
 
 
 def load(directory):
-	return Collection(iterate_valid_games_loop(directory))
+	paths = all_paths(directory)
+	return Collection(len(paths), iterate_valid_games_loop(paths))
 
 if __name__ == "__main__":
-	c = load("train")
+	c = load("train_alt")
 	for game in c.next(5):
 
 		while True:
