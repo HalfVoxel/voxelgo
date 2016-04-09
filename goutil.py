@@ -161,7 +161,12 @@ class Board:
 		RESET = '\033[0m'
 
 		if probs is not None:
-			probmax = probs.max()
+			try:
+				probmax = probs.max()
+			except:
+				# Eh, maybe it was a regular list
+				probmax = max(probs)
+
 
 		# ◯
 		# ◉

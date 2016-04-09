@@ -3,6 +3,7 @@ import goinput
 import time
 import argparse
 import goutil
+import sys
 
 def weigth_var(shape, name):
 	initial = tf.truncated_normal(shape, stddev=0.1)
@@ -28,21 +29,21 @@ class Net:
 
 
 
-		W_conv1 = weigth_var([5, 5, input_channels, 64], "W_conv1")
-		b_conv1 = bias_var([64], "b_conv1")
+		self.W_conv1 = weigth_var([5, 5, input_channels, 64], "W_conv1")
+		self.b_conv1 = bias_var([64], "b_conv1")
 		x_image = tf.reshape(self.x, [-1, size, size, input_channels])
 
 		# Shape [?, size, size, 32]
-		h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
+		h_conv1 = tf.nn.relu(conv2d(x_image, self.W_conv1) + self.b_conv1)
+		self.h_conv1 = h_conv1
 
+		self.W_conv2 = weigth_var([5, 5, 64, 32], "W_conv2")
+		self.b_conv2 = bias_var([32], "b_conv2")
+		h_conv2 = tf.nn.relu(conv2d(h_conv1, self.W_conv2) + self.b_conv2)
 
-		W_conv2 = weigth_var([5, 5, 64, 32], "W_conv2")
-		b_conv2 = bias_var([32], "b_conv2")
-		h_conv2 = tf.nn.relu(conv2d(h_conv1, W_conv2) + b_conv2)
-
-		W_conv3 = weigth_var([5, 5, 32, 8], "W_conv3")
-		b_conv3 = bias_var([8], "b_conv3")
-		h_conv3 = tf.nn.relu(conv2d(h_conv2, W_conv3) + b_conv3)
+		self.W_conv3 = weigth_var([5, 5, 32, 8], "W_conv3")
+		self.b_conv3 = bias_var([8], "b_conv3")
+		h_conv3 = tf.nn.relu(conv2d(h_conv2, self.W_conv3) + self.b_conv3)
 
 		# h_pool2 = max_pool_2x2(h_conv2)
 
@@ -55,9 +56,9 @@ class Net:
 		# keep_prob = tf.placeholder(tf.float32)
 		# h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 
-		W_conv4 = weigth_var([5, 5, 8, 1], "W_conv4")
-		b_conv4 = bias_var([1], "b_conv4")
-		h_conv4 = tf.nn.relu(conv2d(h_conv3, W_conv4) + b_conv4)
+		self.W_conv4 = weigth_var([5, 5, 8, 1], "W_conv4")
+		self.b_conv4 = bias_var([1], "b_conv4")
+		h_conv4 = tf.nn.relu(conv2d(h_conv3, self.W_conv4) + self.b_conv4)
 
 		h_conv4_flat = tf.reshape(h_conv4, [-1, size*size])
 		self.y = tf.nn.softmax(h_conv4_flat)
@@ -89,7 +90,10 @@ class Net:
 
 parser = argparse.ArgumentParser(description="Go Neural Network")
 parser.add_argument('--checkpoint', dest="checkpoint", default=None, help="path to checkpoint file")
-parser.add_argument('--simulate', dest="simulate", action='store_true', help="simulate random games instead of training")
+parser.add_argument('--simulate', dest="simulate", action='store_true', help="simulate random games")
+parser.add_argument('--train', dest="train", action='store_true', help="train the net")
+parser.add_argument('--dump', dest="dump", action='store_true', help="dump training parameters to output")
+parser.add_argument('--visualize', dest="visualize", action='store_true', help="visualize probabilities from stdin")
 
 args = parser.parse_args()
 
@@ -101,9 +105,59 @@ init = tf.initialize_all_variables()
 sess = tf.Session()
 sess.run(init)
 
+def write_tensor(variable):
+	name = variable.name.replace(":0","") + "_data"
+	tensor = sess.run(variable)
+	sys.stdout.write("string " + name + " = ")
+	sys.stdout.write('"')
+	sys.stdout.write(str(tensor.ndim) + ' ')
+	items = 1
+	for i in range(0, tensor.ndim):
+		items *= tensor.shape[i]
+		sys.stdout.write(str(tensor.shape[i]) + ' ')
+
+	cnt = 30
+	for i in tensor.flat:
+		s = str(i) + ' '
+		cnt += len(s)
+		sys.stdout.write(s)
+		if cnt > 120:
+			cnt = 0
+			sys.stdout.write('\\\n')
+
+	sys.stdout.write('";')
+	sys.stdout.write('\n\n')
+
+
 if args.checkpoint is not None:
-	print("Restoring from checkpoint...")
+	if not args.dump:
+		print("Restoring from checkpoint...")
 	saver.restore(sess, args.checkpoint)
+
+if args.dump:
+	write_tensor(net.W_conv1)
+	write_tensor(net.b_conv1)
+
+	write_tensor(net.W_conv2)
+	write_tensor(net.b_conv2)
+
+	write_tensor(net.W_conv3)
+	write_tensor(net.b_conv3)
+
+	write_tensor(net.W_conv4)
+	write_tensor(net.b_conv4)
+
+	#print(arr)
+
+if args.visualize:
+	# Dummy (todo: create empty)
+	game = goinput.next_game()
+
+	fs = [float(x) for x in input().strip().split(' ')]
+	print(fs)
+	print(len(fs))
+	ps = [fs[x + y*19] for x in range(0,19) for y in range(0,19)]
+	print(game.probabilities(ps, -1, -1, -1))
 
 if args.simulate:
 	game = goinput.next_game()
@@ -115,6 +169,7 @@ if args.simulate:
 			continue
 
 		scores = net.scores(sess, [inp], [label])[0]
+		print(scores)
 
 		maxcoord = scores.argmax()
 		bestx = maxcoord % goutil.Board.SIZE
@@ -123,9 +178,20 @@ if args.simulate:
 		print("Best score: " + str(scores.max()))
 		print(game.probabilities(scores, move[0], move[1], move[2]))
 
-		time.sleep(0.5)
+		h_conv1 = sess.run(net.h_conv1, feed_dict={net.x: [inp], net.y_: [label]})
+		test = scores[:]
+		for i in range(0,19):
+			for j in range(0,19):
+				for k in range(0,32):
+					if k == 0:
+						test[i + j*19] = h_conv1[0][i][j][k]
 
-else:
+
+
+		print(game.probabilities(test, -1, -1, -1))
+		time.sleep(5.5)
+
+if args.train:
 	print("Training...")
 	batch_size = 200
 	for i in range(50000):
