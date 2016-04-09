@@ -127,24 +127,27 @@ class Board:
 
 
 	def all_freedoms(self):
-		frs = [-1]*Board.SIZE*Board.SIZE
+		numfree = [-1]*Board.SIZE*Board.SIZE
 
 		for y in range(0, Board.SIZE):
 			for x in range(0, Board.SIZE):
-				if frs[x + y*Board.SIZE] == -1:
+				if numfree[x + y*Board.SIZE] == -1:
 					if self.get(x,y) == 0:
-						frs[x + y*Board.SIZE] = 0
+						numfree[x + y*Board.SIZE] = 0
 					else:
 						seen = set()
 						fr = self.freedoms(x, y, seen)
 						for p in seen:
-							frs[p[0] + p[1]*Board.SIZE] = fr
-		return frs
+							numfree[p[0] + p[1]*Board.SIZE] = fr
+		return numfree
 
 	def __str__(self):
 		return self.highlight(-1, -1, 0)
 
 	def highlight(self, hx, hy, hcol):
+		return self.probabilities(None, hx, hy, hcol)
+
+	def probabilities(self, probs, hx, hy, hcol):
 		s = ""
 		for x in range(0, Board.SIZE):
 			s += ' ' + str(x)
@@ -157,23 +160,29 @@ class Board:
 		HIGHLIGHT = ['', '\033[5m\033[94m', '\033[5m\033[91m']
 		RESET = '\033[0m'
 
+		if probs is not None:
+			probmax = probs.max()
+
 		# ◯
 		# ◉
 		for y in range(0, Board.SIZE):
 			s += '|'
 			for x in range(0, Board.SIZE):
 				col = self.stones[x + y*Board.SIZE]
+				if probs is not None:
+					p = probs[x + y*Board.SIZE] / probmax
+					s += '\033[48;2;0;' + str(int(p * 255)) + ';0m'
 
 				if x == hx and y == hy:
 					if col != 0:
-						s += HIGHLIGHT[hcol] + " ◉" + RESET
+						s += HIGHLIGHT[hcol] + "◉ " + RESET
 					else:
-						s += HIGHLIGHT[hcol] + " ◉" + RESET
+						s += HIGHLIGHT[hcol] + "◉ " + RESET
 				else:
 					if col != 0:
-						s += COL[col] + " ◉" + RESET
+						s += COL[col] + "◯ " + RESET
 					else:
-						s += "  "
+						s += "  " + RESET
 
 			s += ' |\n'
 
