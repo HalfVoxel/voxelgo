@@ -5,7 +5,7 @@ import time
 size = 19
 pixels = size*size
 input_size = pixels
-input_channels = 3
+input_channels = 5
 output_size = pixels
 
 x = tf.placeholder(tf.float32, [None, input_size*input_channels], name="x")
@@ -78,7 +78,7 @@ train_step = tf.train.AdamOptimizer(0.002).minimize(cross_entropy)
 #accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
 saver = tf.train.Saver()
-save_every = 100
+save_every = 500
 
 init = tf.initialize_all_variables()
 sess = tf.Session()

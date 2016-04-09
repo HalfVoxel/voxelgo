@@ -43,10 +43,14 @@ def next_batch(n):
 		label[move[0] + move[1]*goutil.Board.SIZE] = 1
 
 		inp = []
-		for i in range(0, len(black)):
-			inp.append(black[i])
-			inp.append(white[i])
-			inp.append(freedoms[i])
+		for y in range(0, goutil.Board.SIZE):
+			for x in range(0, goutil.Board.SIZE):
+				i = x + y*goutil.Board.SIZE
+				inp.append(black[i])
+				inp.append(white[i])
+				inp.append(freedoms[i])
+				inp.append(x/(goutil.Board.SIZE-1) - 0.5)
+				inp.append(y/(goutil.Board.SIZE-1) - 0.5)
 
 		result.append(inp)
 		result_labels.append(label)
