@@ -135,6 +135,7 @@ if args.checkpoint is not None:
 	saver.restore(sess, args.checkpoint)
 
 if args.dump:
+	print("// Trained using checkpoint: " + args.checkpoint + "\n")
 	write_tensor(net.W_conv1)
 	write_tensor(net.b_conv1)
 
@@ -153,11 +154,16 @@ if args.visualize:
 	# Dummy (todo: create empty)
 	game = goinput.next_game()
 
-	fs = [float(x) for x in input().strip().split(' ')]
-	print(fs)
-	print(len(fs))
-	ps = [fs[x + y*19] for x in range(0,19) for y in range(0,19)]
-	print(game.probabilities(ps, -1, -1, -1))
+	while True:
+		command = input()
+
+		if command == "visualize":
+			words = input().strip().split(' ')
+
+			fs = [float(x) for x in words]
+			ps = [fs[x + y*19] for y in range(0,19) for x in range(0,19)]
+			print(game.probabilities(ps, -1, -1, -1))
+
 
 if args.simulate:
 	game = goinput.next_game()
