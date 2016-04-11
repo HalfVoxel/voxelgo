@@ -105,28 +105,28 @@ init = tf.initialize_all_variables()
 sess = tf.Session()
 sess.run(init)
 
-def write_tensor(variable):
+def write_tensor(f, variable):
 	name = variable.name.replace(":0","") + "_data"
 	tensor = sess.run(variable)
-	sys.stdout.write("string " + name + " = ")
-	sys.stdout.write('"')
-	sys.stdout.write(str(tensor.ndim) + ' ')
+	f.write("std::string " + name + " = ")
+	f.write('"')
+	f.write(str(tensor.ndim) + ' ')
 	items = 1
 	for i in range(0, tensor.ndim):
 		items *= tensor.shape[i]
-		sys.stdout.write(str(tensor.shape[i]) + ' ')
+		f.write(str(tensor.shape[i]) + ' ')
 
 	cnt = 30
 	for i in tensor.flat:
 		s = str(i) + ' '
 		cnt += len(s)
-		sys.stdout.write(s)
+		f.write(s)
 		if cnt > 120:
 			cnt = 0
-			sys.stdout.write('\\\n')
+			f.write('\\\n')
 
-	sys.stdout.write('";')
-	sys.stdout.write('\n\n')
+	f.write('";')
+	f.write('\n\n')
 
 
 if args.checkpoint is not None:
@@ -135,20 +135,20 @@ if args.checkpoint is not None:
 	saver.restore(sess, args.checkpoint)
 
 if args.dump:
-	print("// Trained using checkpoint: " + args.checkpoint + "\n")
-	write_tensor(net.W_conv1)
-	write_tensor(net.b_conv1)
+	f = open("net.h", 'w')
+	f.write("#include <string>\n\n")
+	f.write("// Trained using checkpoint: " + args.checkpoint + "\n\n")
+	write_tensor(f, net.W_conv1)
+	write_tensor(f, net.b_conv1)
 
-	write_tensor(net.W_conv2)
-	write_tensor(net.b_conv2)
+	write_tensor(f, net.W_conv2)
+	write_tensor(f, net.b_conv2)
 
-	write_tensor(net.W_conv3)
-	write_tensor(net.b_conv3)
+	write_tensor(f, net.W_conv3)
+	write_tensor(f, net.b_conv3)
 
-	write_tensor(net.W_conv4)
-	write_tensor(net.b_conv4)
-
-	#print(arr)
+	write_tensor(f, net.W_conv4)
+	write_tensor(f, net.b_conv4)
 
 if args.visualize:
 	# Dummy (todo: create empty)
