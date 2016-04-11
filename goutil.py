@@ -16,9 +16,12 @@ class Board:
 		else:
 			self.node = None
 		self.stones = [0]*Board.SIZE*Board.SIZE
+		self.turn = 0
+		self.dead = None
 
 	def next(self):
 		self.node = self.node.next
+
 		if self.node == None:
 			return None
 
@@ -34,20 +37,57 @@ class Board:
 			print("Invalid move position: " + str(pos) + "\n" + self.path)
 			return None
 
+		self.turn += 1
+
 		x = ord(pos[0]) - ord('a')
 		y = ord(pos[1]) - ord('a')
 		if not self.place(x, y, color):
-			print(self.highlight(x, y, color))
+			#print(self.highlight(x, y, color))
 			print("Invalid Move at " + str(x) + " " + str(y) + "\n" + self.path)
 			return None
 
 		return (x, y, color)
+
+	def get_dead(self):
+		self.calculate_dead_states()
+		return self.dead[self.turn]
+
+	def calculate_dead_states(self):
+		if self.dead is not None:
+			return
+
+		assert(self.turn == 0)
+
+		self.dead = []
+		stones = []
+		dup = self.copy()
+		for step in range(0, 100000):
+
+			self.dead.append([0]*Board.SIZE*Board.SIZE)
+			stones.append(dup.stones[:])
+
+			move = dup.next()
+			if move == None:
+				break
+
+			for i in range(0, len(dup.stones)):
+				if stones[step][i] != 0 and dup.stones[i] == 0:
+					b = step
+
+					# Show as dead at most 20 steps back
+					MAX_HISTORY = 20
+
+					while b >= 0 and stones[b][i] != 0 and step - b < MAX_HISTORY:
+						self.dead[b][i] = 1
+						b -= 1
+
 
 	def copy(self):
 		other = Board(self.path, self.game_tree)
 		other.node = self.node
 		# Copy stones
 		other.stones = self.stones[:]
+		other.turn = self.turn
 		return other
 
 	def place(self, x, y, color):
@@ -175,7 +215,9 @@ class Board:
 			for x in range(0, Board.SIZE):
 				col = self.stones[x + y*Board.SIZE]
 				if probs is not None:
-					p = probs[x + y*Board.SIZE] / probmax
+					p = probs[x + y*Board.SIZE]
+					if probmax > 0:
+						p /= probmax
 					s += '\033[48;2;0;' + str(int(p * 255)) + ';0m'
 
 				if x == hx and y == hy:
