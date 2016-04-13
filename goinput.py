@@ -13,26 +13,28 @@ def epoch():
 def next_game():
 	return games.next(1)[0]
 
+def label_from_game(game):
+	move = game.next()
+
+	if move == None:
+		# End of game
+		return None, None
+
+	# One-hot, flattened label
+	label = [0]*goutil.Board.SIZE*goutil.Board.SIZE
+	label[move[0] + move[1]*goutil.Board.SIZE] = 1
+	return label, move
+
 def input_from_game(game):
 	white = [(1 if x == 1 else 0) for x in game.stones]
 	black = [(1 if x == -1 else 0) for x in game.stones]
 	freedoms = game.all_freedoms()
 
-	move = game.next()
-
-	if move == None:
-		# End of game
-		return None, None, None
-
 	# Make sure that it is always black that makes the move
-	if move[2] == 1:
+	if not game.is_blacks_turn():
 		tmp = black
 		black = white
 		white = tmp
-
-	# One-hot, flattened label
-	label = [0]*goutil.Board.SIZE*goutil.Board.SIZE
-	label[move[0] + move[1]*goutil.Board.SIZE] = 1
 
 	inp = []
 	for y in range(0, goutil.Board.SIZE):
@@ -44,7 +46,7 @@ def input_from_game(game):
 			inp.append(x/(goutil.Board.SIZE-1) - 0.5)
 			inp.append(y/(goutil.Board.SIZE-1) - 0.5)
 
-	return inp, label, move
+	return inp
 
 def next_batch(n):
 	result = []
@@ -58,9 +60,12 @@ def next_batch(n):
 			# Pick random game
 			game = random.choice(current_games)
 
-			inp, label, move = input_from_game(game)
+			inp = input_from_game(game)
 
-			if inp == None:
+			# Note: must run after input_from_game since this progresses the game state
+			label, move = label_from_game(game)
+
+			if move == None:
 				current_games.remove(game)
 				continue
 

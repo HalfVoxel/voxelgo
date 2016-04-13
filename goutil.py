@@ -8,6 +8,12 @@ class Board:
 	dx = [1, 0, -1, 0]
 	dy = [0, 1, 0, -1]
 
+	@staticmethod
+	def from_stones(stones):
+		game = Board("/tmp/", None)
+		game.stones = stones
+		return game
+
 	def __init__(self, path, game_tree):
 		self.path = path
 		self.game_tree = game_tree
@@ -18,6 +24,9 @@ class Board:
 		self.stones = [0]*Board.SIZE*Board.SIZE
 		self.turn = 0
 		self.dead = None
+
+	def is_blacks_turn(self):
+		return self.node is None or 'W' in self.node.properties
 
 	def next(self):
 		self.node = self.node.next
@@ -189,9 +198,9 @@ class Board:
 
 	def probabilities(self, probs, hx, hy, hcol):
 		s = ""
-		for x in range(0, Board.SIZE):
-			s += ' ' + str(x)
-		s += '\n'
+		#for x in range(0, Board.SIZE):
+		#	s += ' ' + str(x)
+		#s += '\n'
 		s += ' ' + '--' * Board.SIZE + '\n'
 
 		# Used with index 1 and -1
@@ -256,7 +265,7 @@ def iterate_valid_games_loop(paths):
 		if 'SZ' in gt.root.properties:
 			size = gt.root.properties['SZ']
 			if size != ['19']:
-				# print("Invalid board size (" + str(size) + ")")
+				print("Invalid board size (" + str(size) + ")")
 				continue
 		else:
 			# TODO: Guess board size?

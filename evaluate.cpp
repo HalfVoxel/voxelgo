@@ -390,8 +390,8 @@ bool valid_move(const vff &board, const vff &comps, int x, int y) {
 vfff convert_board_to_input(const vff &board) {
 	vfff input = vfff(19 + padding*2, vff(19 + padding*2, vf(5, 0)));
 
-	for (int x = 0; x < 19; x++) {
-		for (int y = 0; y < 19; y++) {
+	for (int y = 0; y < 19; y++) {
+		for (int x = 0; x < 19; x++) {
 			input[y + padding][x + padding][3] = (x/(19.0f - 1)) - 0.5f;
 			input[y + padding][x + padding][4] = (y/(19.0f - 1)) - 0.5f;
 
@@ -410,8 +410,16 @@ vfff convert_board_to_input(const vff &board) {
 	return input;
 }
 
-pair<int,int> run(const vff &board) {
-	vfff input = convert_board_to_input(board);
+vfff eval_net(const vfff &input) {
+	#ifdef DEBUG
+	cerr << "INPUT: " << endl;
+	itervfff(i, j, k, input, padding) {
+		if (k == 0) {
+			cerr << input[i][j][k] << " ";
+		}
+	}
+	cerr << endl;
+	#endif
 
 	assert(input.size() == 19 + 2*padding);
 	assert(input[0].size() == 19 + 2*padding);
@@ -422,11 +430,7 @@ pair<int,int> run(const vff &board) {
 	add(last, b_conv1);
 	relu(last);
 
-	/*itervfff(i, j, k, last, padding) {
-		if (k == 0) {
-			cout << last[i][j][k] << " ";
-		}
-	}*/
+	
 
 	// Layer 2
 	last = conv2d(last, W_conv2, strides);
@@ -450,7 +454,50 @@ pair<int,int> run(const vff &board) {
 	assert(last[0].size() == 19 + 2*padding);
 	assert(last[0][0].size() == 1);
 
+	#ifdef DEBUG
+	cerr << "OUTPUT: " << endl;
+	itervfff(i, j, k, input, padding) {
+		if (k == 0) {
+			cerr << last[i][j][k] << " ";
+		}
+	}
+	cerr << endl;
+	#endif
+
+	return last;
+}
+
+
+pair<int,int> run(const vff &board) {
+	vfff input = convert_board_to_input(board);
+
+	auto last = eval_net(input);
+
 #ifdef DEBUG
+	cerr << "print" << endl;
+	cerr << our_id << " " << opponend_id << endl;
+
+	cerr << "input" << endl;
+	itervfff(i, j, k, input, padding) {
+		cerr << input[i][j][k] << " ";
+	}
+	cerr << endl;
+
+	cerr << "board" << endl;
+	for (int y = 0; y < 19; y++) {
+		for (int x = 0; x < 19; x++) {
+			if (board[y][x] == our_id) {
+				cerr << 1;
+			} else if (board[y][x] == opponend_id) {
+				cerr << -1;
+			} else {
+				cerr << board[y][x];
+			}
+			cerr << " ";
+		}
+	}
+	cerr << endl;
+
 	cerr << "visualize" << endl;
 	itervfff(i, j, k, last, padding) {
 		cerr << last[i][j][k] << " ";

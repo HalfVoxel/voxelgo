@@ -4,6 +4,7 @@ import time
 import argparse
 import goutil
 import sys
+import math
 
 def weigth_var(shape, name):
 	initial = tf.truncated_normal(shape, stddev=0.1)
@@ -78,8 +79,8 @@ class Net:
 		#correct_prediction = tf.equal(tf.argmax(y,1), tf.argmax(y_, 1))
 		#accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-	def scores(self, sess, batch_xs, batch_ys):
-		return sess.run(self.y, feed_dict={self.x: batch_xs, self.y_: batch_ys})
+	def scores(self, sess, batch_xs):
+		return sess.run(self.y, feed_dict={self.x: batch_xs})
 		
 	def loss(self, sess, batch_xs, batch_ys):
 		loss = sess.run(self.cross_entropy, feed_dict={self.x: batch_xs, self.y_: batch_ys}) / len(batch_xs)
@@ -153,9 +154,41 @@ if args.dump:
 if args.visualize:
 	# Dummy (todo: create empty)
 	game = goinput.next_game()
+	last_input = None
 
 	while True:
 		command = input()
+
+		if command == "print":
+			print("Printed: ")
+			print(input())
+
+		if command == "input":
+			print("INPUT")
+			words = input().strip().split(' ')
+			fs = [float(x) for x in words]
+			last_input = fs
+			scores = net.scores(sess, [fs])[0]
+			print(game.probabilities(scores, -1, -1, -1))
+
+		if command == "board":
+			words = input().strip().split(' ')
+
+			fs = [int(x) for x in words]
+			stones = [fs[x + y*19] for y in range(0,19) for x in range(0,19)]
+			game = goutil.Board.from_stones(stones)
+			assert(game.is_blacks_turn())
+			inp = goinput.input_from_game(game)
+
+			for i in range(0, len(last_input)):
+				if abs(last_input[i] - inp[i]) > 0.1:
+					print(" " + str(last_input[i]) + " " + str(inp[i]))
+					exit(1)
+
+			#print(inp)
+			print(stones)
+			scores = net.scores(sess, [inp])[0]
+			print(game.probabilities(scores, -1, -1, -1))
 
 		if command == "visualize":
 			words = input().strip().split(' ')
@@ -169,12 +202,15 @@ if args.simulate:
 	game = goinput.next_game()
 
 	while True:
-		inp, label, move = goinput.input_from_game(game)
-		if inp == None:
+		inp = goinput.input_from_game(game)
+		# Must run after input_from_game
+		label, move = goinput.label_from_game(game)
+
+		if label == None:
 			game = goinput.next_game()
 			continue
 
-		scores = net.scores(sess, [inp], [label])[0]
+		scores = net.scores(sess, [inp])[0]
 		print(scores)
 
 		maxcoord = scores.argmax()
@@ -195,14 +231,14 @@ if args.simulate:
 
 
 		print(game.probabilities(test, -1, -1, -1))
+
 		time.sleep(5.5)
 
 if args.train:
 	print("Training...")
 	batch_size = 200
-	for i in range(50000):
+	for i in range(5000000):
 		batch_xs, batch_ys = goinput.next_batch(batch_size)
-
 		net.train(sess, batch_xs, batch_ys)
 
 		if i % 20 == 0:
