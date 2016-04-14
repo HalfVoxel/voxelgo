@@ -190,6 +190,55 @@ class Board:
 							numfree[p[0] + p[1]*Board.SIZE] = fr
 		return numfree
 
+	def regions(self):
+		regs = [0]*Board.SIZE*Board.SIZE
+
+		for y in range(0, Board.SIZE):
+			for x in range(1, Board.SIZE):
+				col = self.stones[x + y*Board.SIZE]
+
+				reg = 0
+				if col != 0:
+					reg = col
+				elif y > 0 and regs[x + (y-1)*Board.SIZE] != 0:
+					reg = regs[x + (y-1)*Board.SIZE]
+				elif regs[(x-1) + y*Board.SIZE] != 0:
+					reg = regs[(x-1) + y*Board.SIZE]
+
+				regs[x + y*Board.SIZE] = reg
+
+		for y in range(Board.SIZE-1, -1, -1):
+			for x in range(Board.SIZE-2, -1, -1):
+				col = self.stones[x + y*Board.SIZE]
+
+				reg = 0
+				if col != 0:
+					reg = col
+				elif y < Board.SIZE-1 and regs[x + (y+1)*Board.SIZE] != 0:
+					reg = regs[x + (y+1)*Board.SIZE]
+				elif regs[(x+1) + y*Board.SIZE] != 0:
+					reg = regs[(x+1) + y*Board.SIZE]
+
+				regs[x + y*Board.SIZE] = reg
+
+		return regs
+
+	def scores(self):
+		regs = self.regions()
+
+		# Indexed using 0 (for black) and 1 (for white)
+		score = [0, 0]
+		for i in range(0,len(regs)):
+			score[max(regs[i], 0)] += 1
+
+		komi = 7.5
+		score[1] += komi
+		return score
+
+	def current_leader(self):
+		sc = self.scores()
+		return -1 if sc[0] > sc[1] else 1
+
 	def __str__(self):
 		return self.highlight(-1, -1, 0)
 
