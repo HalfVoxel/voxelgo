@@ -7,6 +7,9 @@
 #include <cassert>
 #include <set>
 #include <stack>
+#include <time.h>
+#include <random>
+#include <chrono>
 
 #include "net.h"
 
@@ -123,6 +126,14 @@ float sum(const vfff &data) {
 	return acc;
 }
 
+float mx(const vfff &data) {
+	float m = -100000;
+	itervfff(i, j, k, data, padding) {
+		m = max(m, data[i][j][k]);
+	}
+	return m;
+}
+
 void normalize(vfff &data) {
 	div(data, sum(data));
 }
@@ -143,6 +154,35 @@ pii argmax(const vfff &data) {
 
 		if (v > best_val) {
 			best_val = v;
+			best = pii(x - padding, y - padding);
+		}
+	}
+
+	return best;
+}
+
+default_random_engine rnd_generator (chrono::system_clock::now().time_since_epoch().count());
+uniform_real_distribution<float> uniform_distribution(0,1);
+
+pii reservoir_sampling(const vfff &data) {
+	float m = mx(data);
+	pii best;
+	float weight = 0;
+	itervfff(y, x, k, data, padding) {
+		float v = data[y][x][k];
+		
+		// Discard, lousy move
+		if (v < 0.2f*m) {
+			continue;
+		}
+
+		// Use squared probability
+		// to lower the randomness of the move
+		// selection slightly (we really don't want to pick very bad moves)
+		v = v*v;
+		weight += v;
+		auto rnd = uniform_distribution(rnd_generator);
+		if (rnd*weight <= v) {
 			best = pii(x - padding, y - padding);
 		}
 	}
@@ -508,7 +548,11 @@ pair<int,int> run(const vff &board) {
 	auto comps = connected_components(board);
 
 	for (int i = 0; i < 19*19; i++) {
+#ifdef DETERMINISTIC
 		auto candidate = argmax(last);
+#else
+		auto candidate = reservoir_sampling(last);
+#endif
 
 		if (valid_move(board, comps, candidate.first, candidate.second)) {
 			return candidate;
@@ -516,7 +560,6 @@ pair<int,int> run(const vff &board) {
 			cerr << "Invalid move, selecting next candidate..." << endl;
 			// Set that to zero
 			last[candidate.second + padding][candidate.first + padding][0] = 0;
-			assert(argmax(last) != candidate);
 		}
 	}
 
@@ -529,6 +572,10 @@ vff empty_board() {
 }
 
 int main () {
+#ifndef DETERMINISTIC
+	srand(time(0));
+#endif
+
 	parse();
 
 	vff current_board;
