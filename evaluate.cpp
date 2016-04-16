@@ -75,25 +75,52 @@ void parse(stringstream &input, vffff &output) {
 	}
 }
 
-int padding = 2;
+const int padding = 2;
+const int sizeandpad = 19+2*padding;
 vfff conv2d(const vfff &input, const vffff &filter, const vf &strides) {
 	// Zeroed output array
 	vfff output = vfff(input.size(), vff(input[0].size(), vf(filter[0][0][0].size(), 0)));
 
+	vf in_flat = vf(input.size()*input[0].size()*input[0][0].size());
+	int channels = input[0][0].size();
+	assert(input.size() == sizeandpad);
+	assert(input[0].size() == sizeandpad);
+	itervfff(i,j,k, input, 0) {
+		in_flat[i*sizeandpad*channels + j*channels + k] = input[i][j][k];
+	}
+
+	auto filterd1 = filter.size();
+	auto filterd2 = filter[0].size();
+	auto filterd3 = filter[0][0].size();
+
+	assert(strides[1] == 1);
+	assert(strides[2] == 1);
+
 	for (int i = 0; i < output.size() - 2*padding; i++) {
 		for (int j = 0; j < output[0].size() - 2*padding; j++) {
 			for (int k = 0; k < output[0][0].size(); k++) {
+#ifdef VALIDATE
 				float acc = 0;
+#endif
+				float acc2 = 0;
 
-				for (int di = 0; di < filter.size(); di++) {
-					for (int dj = 0; dj < filter[0].size(); dj++) {
-						for (int q = 0; q < filter[0][0].size(); q++) {
-							acc += input[strides[1] * i + di][strides[2] * j + dj][q] * filter[di][dj][q][k];
+				for (int di = 0; di < filterd1; di++) {
+					for (int dj = 0; dj < filterd2; dj++) {
+						auto stuff = &filter[di][dj];
+						int offset = (i + di)*sizeandpad*channels + (j+dj)*channels;
+						for (int q = 0; q < filterd3; q++) {
+#ifdef VALIDATE
+							acc += input[/*strides[1] * */ i + di][/* strides[2] * */ j + dj][q] * filter[di][dj][q][k];
+#endif
+							acc2 += in_flat[offset + q] * (*stuff)[q][k];
 						}
 					}
 				}
 
-				output[i + padding][j + padding][k] = acc;
+#ifdef VALIDATE
+				assert(abs(acc-acc2) < 0.001);
+#endif
+				output[i + padding][j + padding][k] = acc2;
 			}
 		}
 	}
