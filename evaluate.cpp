@@ -10,6 +10,7 @@
 #include <time.h>
 #include <random>
 #include <chrono>
+#include <fstream>
 
 #include "net.h"
 
@@ -577,6 +578,12 @@ int main () {
 #endif
 
 	parse();
+
+#ifdef FROM_FILE
+	// Read from test8
+	ifstream in("test8.in");
+    cin.rdbuf(in.rdbuf());
+#endif
 
 	vff current_board;
 
