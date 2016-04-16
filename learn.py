@@ -7,17 +7,25 @@ import math
 import goinput
 import goutil
 import gopolicynet
+import govaluenet
 
 parser = argparse.ArgumentParser(description="Go Neural Network")
 parser.add_argument('--checkpoint', dest="checkpoint", default=None, help="path to checkpoint file")
 parser.add_argument('--simulate', dest="simulate", action='store_true', help="simulate random games")
+parser.add_argument('--policynet', dest="policynet", action='store_true', help="use the policy network")
+parser.add_argument('--valuenet', dest="valuenet", action='store_true', help="use the value network")
 parser.add_argument('--train', dest="train", action='store_true', help="train the net")
+
 parser.add_argument('--dump', dest="dump", action='store_true', help="dump training parameters to output")
 parser.add_argument('--visualize', dest="visualize", action='store_true', help="visualize probabilities from stdin")
 
 args = parser.parse_args()
 
-net = gopolicynet,s.Net()
+if args.valuenet:
+	net = govaluenet.Net()
+else:
+	net = gopolicynet.Net()
+
 saver = tf.train.Saver()
 save_every = 500
 
@@ -71,6 +79,9 @@ if args.dump:
 	write_tensor(f, net.b_conv4)
 
 if args.visualize:
+	if args.valuenet:
+		exit(1)
+
 	# Dummy (todo: create empty)
 	game = goinput.next_game()
 	last_input = None
@@ -118,16 +129,20 @@ if args.visualize:
 
 
 if args.simulate:
+	if args.valuenet:
+		exit(1)
+
 	game = goinput.next_game()
 
 	while True:
 		inp = goinput.input_from_game(game)
 		# Must run after input_from_game
-		label, move = goinput.label_from_game(game)
-
-		if label == None:
+		move = game.next()
+		if move == None:
 			game = goinput.next_game()
 			continue
+
+		label = goinput.label_from_game(move)
 
 		scores = net.scores(sess, [inp])[0]
 		print(scores)
@@ -154,10 +169,11 @@ if args.simulate:
 		time.sleep(5.5)
 
 if args.train:
+	labeltype = "winner" if args.valuenet else "move"
 	print("Training...")
 	batch_size = 200
 	for i in range(5000000):
-		batch_xs, batch_ys = goinput.next_batch(batch_size)
+		batch_xs, batch_ys = goinput.next_batch(batch_size, labeltype)
 		net.train(sess, batch_xs, batch_ys)
 
 		if i % 20 == 0:

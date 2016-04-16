@@ -2,8 +2,9 @@ import goutil
 import numpy
 import tensorflow as tf
 import random
+import traceback
 
-games = goutil.load("train_alt")
+games = goutil.load("train_kyu")
 
 current_games = []
 
@@ -13,25 +14,36 @@ def epoch():
 def next_game():
 	return games.next(1)[0]
 
-def label_from_game(game):
-	move = game.next()
-
-	if move == None:
-		# End of game
-		return None, None
-
+def label_from_game(move):
 	# One-hot, flattened label
 	label = [0]*goutil.Board.SIZE*goutil.Board.SIZE
 	label[move[0] + move[1]*goutil.Board.SIZE] = 1
-	return label, move
+	return label
 
-def input_from_game(game):
+def winner_label_from_game(game, move):
+	# -1 if it is not blacks move, otherwise 1
+	# This makes sure that if the current player
+	# wins the game, then the label will be -1
+	# otherwise it will be 1
+	blacks_move = move[2] == -1
+	if game.game_tree is not None:
+		props = game.game_tree.root.properties
+		if "RE" in props:
+			resultdata = props["RE"][0]
+			if resultdata.startswith('W'):
+				return [1 if not blacks_move else -1]
+			elif resultdata.startswith('B'):
+				return [1 if blacks_move else -1]
+
+	return None
+
+def input_from_game(game, move):
 	white = [(1 if x == 1 else 0) for x in game.stones]
 	black = [(1 if x == -1 else 0) for x in game.stones]
 	freedoms = game.all_freedoms()
 
 	# Make sure that it is always black that makes the move
-	if not game.is_blacks_turn():
+	if move[2] != -1:
 		tmp = black
 		black = white
 		white = tmp
@@ -48,7 +60,7 @@ def input_from_game(game):
 
 	return inp
 
-def next_batch(n):
+def next_batch(n, labeltype="move"):
 	result = []
 	result_labels = []
 
@@ -60,19 +72,45 @@ def next_batch(n):
 			# Pick random game
 			game = random.choice(current_games)
 
-			inp = input_from_game(game)
+			# valid = True
+			# while game.node.next is not None and game.node.next.next is not None:
+			# 	move = game.next()
+			# 	if move is None:
+			# 		current_games.remove(game)
+			# 		valid = False
+			# 		break
 
-			# Note: must run after input_from_game since this progresses the game state
-			label, move = label_from_game(game)
+			# if not valid:
+			# 	continue
+
+			# Keep a copy because the input_from_game
+			# method requires the game state before the move was done
+			# as well as the move.
+			# This is slightly inefficient, but oh well
+			dup = game.copy()
+
+			move = game.next()
 
 			if move == None:
 				current_games.remove(game)
 				continue
 
+			inp = input_from_game(dup, move)
+
+			if labeltype == "winner":
+				label = winner_label_from_game(game, move)
+				if label is None:
+					# No winner, boring!
+					current_games.remove(game)
+					continue
+			else:
+				assert(labeltype == "move")
+				label = label_from_game(move)
+
 			result.append(inp)
 			result_labels.append(label)
 		except Exception as e:
-			print(e)
+			traceback.print_exc(e)
 			print("Failed to generate input, skipping...")
 			continue
 	
