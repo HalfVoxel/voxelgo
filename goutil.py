@@ -38,9 +38,13 @@ class Board:
 		if 'W' in self.node.properties:
 			pos = self.node.properties['W'][0]
 			color = 1
-		else:
+		elif 'B' in self.node.properties:
 			pos = self.node.properties['B'][0]
 			color = -1
+		else:
+			# This is usually the last move of the game
+			# which for some reason seems to be empty sometimes..
+			return self.next()
 
 		if len(pos) != 2:
 			print("Invalid move position: " + str(pos) + "\n" + self.path)
@@ -50,6 +54,11 @@ class Board:
 
 		x = ord(pos[0]) - ord('a')
 		y = ord(pos[1]) - ord('a')
+
+		if x == 19 and y == 19:
+			# Apparently this is a pass
+			return self.next()
+
 		if not self.place(x, y, color):
 			#print(self.highlight(x, y, color))
 			print("Invalid Move at " + str(x) + " " + str(y) + "\n" + self.path)
