@@ -389,60 +389,26 @@ vff connected_components(const vff &board) {
 
 bool is_our_eye(const vff &board, const vff &comps, int x, int y) {
 	int direct = 0;
-	int outside_diagonals = 0;
-	int outside_direct = 0;
-	int diagonals = 0;
 	bool different_groups = false;
 	int groups_id = -1;
-	for (int dx = -1; dx <= 1; dx++) {
-		for (int dy = -1; dy <= 1; dy++) {
-			if (dx != 0 || dy != 0) {
-				int nx = x + dx;
-				int ny = y + dy;
-				if (get(board, nx, ny) == our_id) {
-					if (groups_id == -1) {
-						groups_id = comps[ny][nx];
-					} else if (comps[ny][nx] != groups_id) {
-						different_groups = true;
-					}
-
-					if (dx != 0 && dy != 0) {
-						diagonals++;
-					} else {
-						direct++;
-					}
-				} else if (get(board, nx, ny) == OutOfBounds) {
-
-					if (dx != 0 && dy != 0) {
-						outside_diagonals++;
-					} else {
-						outside_direct++;
-					}
-				}
+	for (int i = 0; i < 4; i++) {
+		int nx = x + dx[i];
+		int ny = y + dy[i];
+		if (get(board, nx, ny) == our_id) {
+			if (groups_id == -1) {
+				groups_id = comps[ny][nx];
+			} else if (comps[ny][nx] != groups_id) {
+				different_groups = true;
 			}
+
+			direct++;
+		} else if (get(board, nx, ny) == OutOfBounds) {
+			direct++;
 		}
 	}
-
-	int outside = outside_direct + outside_diagonals;
 
 	// Definitely qualifies as an eye
-	if (outside == 0) {
-		if (different_groups) {
-			// We can skip 1 on the diagonals (todo: this will never be true...?)
-			return direct == 4 && diagonals >= 3;
-		} else {
-			// Only a single group surrounding it, we can skip the diagonals
-			return direct == 4;
-		}
-	} else {
-		if (different_groups) {
-			// We can skip 1 on the diagonals (todo: this will never be true...?)
-			return direct + diagonals + outside >= 8;
-		} else {
-			// Only a single group surrounding it, we can skip the diagonals
-			return direct + outside_direct == 4;
-		}
-	}
+	return !different_groups && direct == 4;
 }
 
 bool valid_move(const vff &board, const vff &comps, int x, int y) {
