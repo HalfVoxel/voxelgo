@@ -40,16 +40,18 @@ while True:
 		players[player].stdin.flush()
 
 		cmd = players[player].stdout.readline().decode('utf-8').strip().split(' ')
+		col = -1 if player == 0 else 1
+
 		if cmd[0] == 'place_move':
 			passes = 0
 			x = int(cmd[1])
 			y = int(cmd[2])
-			col = -1 if player == 0 else 1
-			game.place(x, y, col)
+			game.make_move(x, y, col)
 			#print(game.highlight(x, y, col))
 		else:
 			assert(cmd[0] == "pass")
 			#print("Pass")
+			game.pass_turn(col)
 
 			passes += 1
 			if passes >= 2:

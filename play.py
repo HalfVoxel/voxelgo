@@ -21,7 +21,7 @@ while True:
 			if c == 0:
 				c = -1
 			nb = board.copy()
-			if not nb.place(x, y, c):
+			if not nb.make_move(x, y, c):
 				print("Invalid move")
 			else:
 				board = nb

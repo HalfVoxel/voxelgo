@@ -17,6 +17,7 @@ class Board:
 	def __init__(self, path, game_tree):
 		self.path = path
 		self.game_tree = game_tree
+		self.blacks_turn = True
 		if game_tree is not None:
 			self.node = game_tree.root
 		else:
@@ -26,7 +27,7 @@ class Board:
 		self.dead = None
 
 	def is_blacks_turn(self):
-		return self.node is None or 'W' in self.node.properties
+		return self.blacks_turn
 
 	def next(self):
 		self.node = self.node.next
@@ -55,15 +56,12 @@ class Board:
 		x = ord(pos[0]) - ord('a')
 		y = ord(pos[1]) - ord('a')
 
+		# Apparently this is a pass
 		if x == 19 and y == 19:
-			# Apparently this is a pass
+			self.pass_turn(color)
 			return self.next()
 
-		if not self.place(x, y, color):
-			#print(self.highlight(x, y, color))
-			print("Invalid Move at " + str(x) + " " + str(y) + "\n" + self.path)
-			return None
-
+		self.make_move(x, y, color)
 		return (x, y, color)
 
 	def get_dead(self):
@@ -108,7 +106,21 @@ class Board:
 		other.turn = self.turn
 		return other
 
-	def place(self, x, y, color):
+	def pass_turn(self, color):
+		if (color == -1) is not self.blacks_turn:
+			raise Exception("The wrong player made the move")
+
+		self.blacks_turn = not self.blacks_turn
+
+	def make_move(self, x, y, color):
+		if (color == -1) is not self.blacks_turn:
+			raise Exception("The wrong player made the move")
+
+		self.blacks_turn = not self.blacks_turn
+		if not self._place(x, y, color):
+			raise Exception("Invalid Move at " + str(x) + " " + str(y) + "\n" + self.path)
+
+	def _place(self, x, y, color):
 		# Out of range
 		if self.get(x,y) == -2:
 			return False
