@@ -37,13 +37,13 @@ def winner_label_from_game(game, move):
 
 	return None
 
-def input_from_game(game, move):
+def input_from_game(game):
 	white = [(1 if x == 1 else 0) for x in game.stones]
 	black = [(1 if x == -1 else 0) for x in game.stones]
 	freedoms = game.all_freedoms()
 
 	# Make sure that it is always black that makes the move
-	if move[2] != -1:
+	if not game.is_blacks_turn():
 		tmp = black
 		black = white
 		white = tmp
@@ -66,7 +66,8 @@ def next_batch(n, labeltype="move"):
 
 	while len(result) < n:
 		try:
-			while len(current_games) < n:
+			# Keep a pool of 5*batch size games for variation
+			while len(current_games) < 5*n:
 				current_games.append(next_game())
 
 			# Pick random game
@@ -95,7 +96,7 @@ def next_batch(n, labeltype="move"):
 				current_games.remove(game)
 				continue
 
-			inp = input_from_game(dup, move)
+			inp = input_from_game(dup)
 
 			if labeltype == "winner":
 				label = winner_label_from_game(game, move)
