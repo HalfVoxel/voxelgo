@@ -83,9 +83,14 @@ class Net:
 		
 		self.random_logscore = -tf.reduce_sum(tf.to_float(random_sample) * tf.log(self.y))
 
+		self.moves = tf.argmax(self.y, 1)
 		#train_step = tf.train.GradientDescentOptimizer(0.01).minimize(cross_entropy)
 		#correct_prediction = tf.equal(tf.argmax(y,1), tf.argmax(y_, 1))
 		#accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+
+	def moves(self, sess, batch_xz):
+		moves_flat = sess.run(self.moves, feed_dict={self.x: batch_xs})
+		return [(p % 19, p // 19) for p in moves_flat]
 
 	def scores(self, sess, batch_xs):
 		return sess.run(self.y, feed_dict={self.x: batch_xs})
