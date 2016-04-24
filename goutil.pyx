@@ -3,13 +3,13 @@ import os
 import time
 import random
 
-cdef inline int cget(int[19*19] stones, int x, int y):
+cdef inline int cget(int[19 * 19] stones, int x, int y):
     if x < 0 or y < 0 or x >= 19 or y >= 19:
         return -2
 
     return stones[x + y * 19]
 
-cdef int[19*19] cached_scratch_board
+cdef int[19 * 19] cached_scratch_board
 # cached_scratch_board = None
 
 cdef int[4] dx, dy
@@ -18,6 +18,7 @@ dy = [0, 1, 0, -1]
 
 # cdef int SIZE
 SIZE = 19
+
 
 class Board:
     SIZE = 19
@@ -45,6 +46,7 @@ class Board:
             else:
                 # This is usually the last move of the game
                 # which for some reason seems to be empty sometimes..
+                node = node.next
                 continue
 
             if len(pos) != 2:
@@ -53,6 +55,7 @@ class Board:
             x = ord(pos[0]) - ord('a')
             y = ord(pos[1]) - ord('a')
             moves.append((x, y, color))
+            node = node.next
 
         return moves
 
@@ -106,12 +109,12 @@ class Board:
         return self.dead[self.turn]
 
     def connected_components(self, color):
-        comps = [0] * 19 * 19
+        comps = [-1] * 19 * 19
 
-        id = 0
+        id = 1
         for x in range(0, 19):
             for y in range(0, 19):
-                if (comps[y * SIZE + x] == -1 and self.get(x, y) == color):
+                if comps[y * SIZE + x] == -1 and self.get(x, y) == color:
                     seen = []
                     info = self.freedoms(x, y, seen)
 
@@ -152,6 +155,31 @@ class Board:
 
     def is_reasonable_move(self, x, y, color):
         return self.get(x, y) == 0 and not self.is_our_eye(x, y, color)
+
+    def all_valid_moves(self):
+        cdef int[19 * 19] valid, freedoms
+        cdef int x, y, nx, ny, col, i
+
+        freedoms = self.all_freedoms()
+        valid = [0] * SIZE * SIZE
+        for x in range(0, SIZE):
+            for y in range(0, SIZE):
+                # Loop through possible colors, either -1 or 1
+                for col in range(-1, 2, 2):
+                    if self.is_reasonable_move(x, y, col):
+                        for i in range(0, 4):
+                            nx = x + dx[i]
+                            ny = y + dy[i]
+                            frs = cget(freedoms, nx, ny)
+                            stone = self.get(nx, ny)
+                            if stone == 0 or (stone == -col and frs == 1) or (stone == col and frs > 1):
+                                # Totally valid
+                                # Either adjacent to an empty tile
+                                # or adjacent to a group of enemy stones which have only a single freedom (this tile)
+                                # or adjacent to a friendly group which has at least one other freedom
+                                valid[x + y * 19] = 1
+
+        return valid
 
     def calculate_dead_states(self):
         if self.dead is not None:
@@ -266,7 +294,7 @@ class Board:
     def freedoms(self, int x, int y, seen_buffer, int cutoff=10000):
         global cached_scratch_board
         cdef int id, nx, ny, free, color
-        cdef int[19*19] stones
+        cdef int[19 * 19] stones
         stones = self.stones
 
         Board.cached_id += 1
@@ -325,7 +353,7 @@ class Board:
                 self.stones[p[0] + p[1] * SIZE] = 0
 
     def all_freedoms(self):
-        cdef int[19*19] stones
+        cdef int[19 * 19] stones
         stones = self.stones
         numfree = [-1] * SIZE * SIZE
 
@@ -464,6 +492,7 @@ class Collection:
         return self.count / self.estimated_count
 
     def next(self, n):
+        print("Getting " + str(n) + " games...")
         self.count += n
         return [next(self.games) for i in range(0, n)]
 
@@ -481,6 +510,7 @@ def iterate_valid_games_loop(paths):
             # print("No board size specified")
             continue
 
+        print("Yielding game")
         yield game
 
 
@@ -499,7 +529,9 @@ def iterate_games_loop(paths):
     while(True):
         for filepath in paths:
             try:
+                print("Parsing... " + filepath)
                 game = sgf.parse(open(filepath).read())
+                print("Parsed")
                 gt = game.children[0]
                 yield Board(filepath, gt)
             except Exception as e:

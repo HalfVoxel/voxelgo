@@ -61,7 +61,7 @@ def input_from_game(game):
             i = x + y*goutil.SIZE
             inp.append(black[i])
             inp.append(white[i])
-            inp.append(freedoms[i])
+            inp.append(min(freedoms[i], 4))
             inp.append(x/(goutil.SIZE-1) - 0.5)
             inp.append(y/(goutil.SIZE-1) - 0.5)
 

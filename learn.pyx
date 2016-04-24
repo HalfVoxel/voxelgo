@@ -21,11 +21,13 @@ def main(args):
         net = gopolicynet.Net()
 
     saver = tf.train.Saver()
-    save_every = 500
+    save_every = 400
 
     init = tf.initialize_all_variables()
     sess = tf.Session()
     sess.run(init)
+
+    batch_size = args.batch_size
 
     def write_tensor(f, variable):
         name = variable.name.replace(":0", "") + "_data"
@@ -158,12 +160,14 @@ def main(args):
 
             time.sleep(5.5)
 
-    batch_size = 200
+    
     if args.train and (args.policynet or args.valuenet):
         labeltype = "winner" if args.valuenet else "move"
         print("Training...")
         for i in range(5000000):
+            print("Generating input...")
             batch_xs, batch_ys = goinput.next_batch(batch_size, labeltype)
+            print("Training batch...")
             net.train(sess, batch_xs, batch_ys)
 
             if i % 20 == 0:
@@ -175,16 +179,19 @@ def main(args):
                 print(saver.save(sess, "checkpoints/checkpoint", global_step=i))
 
     def sample_random_move(game, color):
-        for i in range(0, 20):
+        for i in range(0, 5):
             x = random.randrange(0, 19)
             y = random.randrange(0, 19)
             if game.game.is_reasonable_move(x, y, color):
                 return x, y
 
+        valid = game.game.all_valid_moves()
         for x in range(0, 19):
             for y in range(0, 19):
-                if game.game.is_reasonable_move(x, y, color):
+                if valid[x + y*19] == 1:
                     return x, y
+                #if game.game.is_reasonable_move(x, y, color):
+                #    return x, y
 
         return None, None
 
@@ -231,8 +238,8 @@ def main(args):
 
         # print("Timers: {0:.2f}, {1:.2f}, {2:.2f}, {3:.2f}".format(timer1, timer2, timer3, timer4))
 
-    def train_using_replays(batch_size):
-        inputs1, inputs2, actions, rewards = reinforce.next_replay_batch(batch_size)
+    def train_using_replays(batch_size, validation):
+        inputs1, inputs2, actions, rewards = reinforce.next_replay_batch(batch_size, validation)
 
         # Batch could not be generated because there were too few replays
         if len(inputs1) == 0:
@@ -244,7 +251,7 @@ def main(args):
         qs = net.max_qs(sess, inputs2)
         wrapped_qs = []
         # Calculate desired reward for this state
-        gamma = 0.9
+        gamma = 0.96
         for i in range(0, len(rewards)):
             reward, terminal = rewards[i]
             if terminal:
@@ -254,7 +261,7 @@ def main(args):
                 # so the Q values must be negated to make them useful for the current player
                 q = reward + gamma * (-qs[i])
 
-            wrapped_qs.append([q])
+            wrapped_qs.append(q)
 
         # If terminal
         if rewards[0][1]:
@@ -264,22 +271,35 @@ def main(args):
             # scores = net.scores(sess, inputs1)
             # print(scores)
 
-        #q_taken = net.q_taken(sess, inputs1, actions)
+        # Approximately assert that it is one-hot
+        assert(sum(sum(x) for x in actions) == len(actions))
+
+        q_taken = net.q_taken(sess, inputs1, actions)
         # print(list(zip(q_taken, wrapped_qs)))
-        loss = net.train(sess, inputs1, actions, wrapped_qs)
-        print("Loss: " + str(loss))
+        if validation:
+            loss = net.eval_loss(sess, inputs1, actions, wrapped_qs)
+            print("Validation Loss: " + str(loss))
+        else:
+            loss = net.train(sess, inputs1, actions, wrapped_qs)
+            print("Training Loss: " + str(loss))
 
     if args.qnet:
         assert(not args.valuenet)
         assert(not args.policynet)
 
-        batch_size = 200
         for i in range(500000000):
 
             probability_to_make_random_move = min(max(1 - 0.0001 * (i - 500), 0.1), 1)
-            print("Batch #" + str(i) + " α=" + str(probability_to_make_random_move))
+            if (i % 10) == 0:
+                print("Batch #" + str(i) + " α=" + str(probability_to_make_random_move))
+                train_using_replays(100, True)
+
+            if i % save_every == 0 and i > 0:
+                print("Saving checkpoint...")
+                print(saver.save(sess, "checkpoints/checkpoint", global_step=i))
+
             generate_replays(batch_size, probability_to_make_random_move)
-            train_using_replays(batch_size)
+            train_using_replays(batch_size, False)
 
 # eval_accuracy = sess.run(accuracy, feed_dict={x: mnist.test.images, y_: mnist.test.labels})
 # print("Final accuracy " + str(eval_accuracy))
@@ -296,6 +316,8 @@ def run(stringargs):
 
     parser.add_argument('--dump', dest="dump", action='store_true', help="dump training parameters to output")
     parser.add_argument('--visualize', dest="visualize", action='store_true', help="visualize probabilities from stdin")
+    parser.add_argument('--batch-size', dest="batch_size", default=200, type=int, help="batch size")
+
     args = parser.parse_args(stringargs)
     main(args)
 
